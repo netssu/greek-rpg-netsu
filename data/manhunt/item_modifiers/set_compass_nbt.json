@@ -1,0 +1,48 @@
+[
+  {
+    "function": "minecraft:copy_nbt",
+    "source": {
+      "type": "minecraft:storage",
+      "source": "manhunt:compass_data"
+    },
+    "ops": [
+      {
+        "source": "X",
+        "target": "LodestonePos.X",
+        "op": "replace"
+      }
+    ]
+  },
+  {
+    "function": "minecraft:copy_nbt",
+    "source": {
+      "type": "minecraft:storage",
+      "source": "manhunt:compass_data"
+    },
+    "ops": [
+      {
+        "source": "Y",
+        "target": "LodestonePos.Y",
+        "op": "replace"
+      }
+    ]
+  },
+  {
+    "function": "minecraft:copy_nbt",
+    "source": {
+      "type": "minecraft:storage",
+      "source": "manhunt:compass_data"
+    },
+    "ops": [
+      {
+        "source": "Z",
+        "target": "LodestonePos.Z",
+        "op": "replace"
+      }
+    ]
+  },
+  {
+    "function": "minecraft:set_nbt",
+    "tag": "{LodestoneTracked:0b}"
+  }
+]
