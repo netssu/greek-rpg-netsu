@@ -1,5 +1,8 @@
 execute as @e[team=runners] unless score @s manhunt_rid matches -2147483647.. run execute store result score @s manhunt_rid run data get entity @s UUID[0]
 
+#Respawn timer check
+function manhunt:respawn_check
+
 #Compass unlock countdown
 execute if score Starts: manhunt_display matches 1.. run scoreboard players remove Starts: manhunt_display 1
 execute if score Starts: manhunt_display matches 1.. run clear @a[team=hunters] minecraft:compass
