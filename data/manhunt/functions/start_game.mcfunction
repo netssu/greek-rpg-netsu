@@ -13,6 +13,10 @@ tag @e remove manhunt_died
 tag @e remove manhunt_previous
 tag @a remove manhunt_near_now
 tag @a remove manhunt_near_before
+tag @a remove manhunt_can_respawn
+
+scoreboard players reset @a manhunt_spec_timer
+effect clear @a minecraft:glowing
 
 scoreboard players set Temp manhunt_enabled 2
 scoreboard players set Temp manhunt_end 10
