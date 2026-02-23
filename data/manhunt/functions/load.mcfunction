@@ -29,10 +29,6 @@ scoreboard objectives add manhunt_z_n dummy
 scoreboard objectives add manhunt_dst dummy
 scoreboard objectives add manhunt_min_dst dummy
 
-scoreboard objectives add manhunt_spec_timer dummy
-scoreboard objectives add manhunt_hunter_spec dummy
-execute unless score Temp manhunt_hunter_spec matches -2147483647.. run scoreboard players set Temp manhunt_hunter_spec 5
-
 execute unless score Temp manhunt_lead matches -2147483647.. run scoreboard players set Temp manhunt_lead 45
 
 team add hunters "hunters"
