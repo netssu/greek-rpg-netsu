@@ -4,6 +4,13 @@ execute as @e[team=runners] unless score @s manhunt_rid matches -2147483647.. ru
 execute if score Starts: manhunt_display matches 1.. run scoreboard players remove Starts: manhunt_display 1
 execute if score Starts: manhunt_display matches 1.. run clear @a[team=hunters] minecraft:compass
 
+#Respawn timers
+function manhunt:process_respawns
+
+#Temporary glow for alive runners
+execute if score Temp manhunt_runner_glow matches 1.. run scoreboard players remove Temp manhunt_runner_glow 1
+execute if score Temp manhunt_runner_glow matches 1.. as @a[team=runners,tag=!manhunt_died] run effect give @s minecraft:glowing 2 0 true
+
 #Game over detection (runners)
 execute unless entity @e[team=runners,tag=!manhunt_died] run function manhunt:decide_winners
 
