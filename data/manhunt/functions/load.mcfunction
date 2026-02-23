@@ -28,8 +28,15 @@ scoreboard objectives add manhunt_z_n dummy
 
 scoreboard objectives add manhunt_dst dummy
 scoreboard objectives add manhunt_min_dst dummy
+scoreboard objectives add manhunt_respawn_time dummy
+scoreboard objectives add manhunt_respawn_x dummy
+scoreboard objectives add manhunt_respawn_y dummy
+scoreboard objectives add manhunt_respawn_z dummy
+scoreboard objectives add manhunt_config dummy
 
 execute unless score Temp manhunt_lead matches -2147483647.. run scoreboard players set Temp manhunt_lead 45
+execute unless score HunterRespawnSeconds manhunt_config matches -2147483647.. run scoreboard players set HunterRespawnSeconds manhunt_config 5
+execute unless score Temp manhunt_runner_glow matches -2147483647.. run scoreboard players set Temp manhunt_runner_glow 0
 
 team add hunters "hunters"
 team add runners "runners"
