@@ -2,14 +2,20 @@ local ContextActionService: ContextActionService = game:GetService("ContextActio
 local Players: Players = game:GetService("Players")
 local ReplicatedStorage: ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService: RunService = game:GetService("RunService")
+local TweenService: TweenService = game:GetService("TweenService")
 local Debris: Debris = game:GetService("Debris")
 local UserInputService: UserInputService = game:GetService("UserInputService")
 
 local POSSESS_KEY: Enum.KeyCode = Enum.KeyCode.E
 local POSSESS_ACTION_NAME: string = "PossessExitAction"
 local SHOOT_ACTION_NAME: string = "PossessShootAction"
+local ABILITY_ONE_ACTION_NAME: string = "PossessAbilityOneAction"
+local ABILITY_TWO_ACTION_NAME: string = "PossessAbilityTwoAction"
 local BLOCK_ACTION_NAME: string = "PossessBlockAction"
 local INPUT_PRIORITY: number = Enum.ContextActionPriority.High.Value + 100
+
+local ABILITY_SLOT_COUNT: number = 2
+local ABILITY_DEFAULT_COOLDOWN: number = 1
 
 local MAX_ENERGY: number = 100
 local DRAIN_RATE: number = 0
@@ -105,6 +111,17 @@ local oldMaxZoom: number = player.CameraMaxZoomDistance
 local hiddenVFXParts = {}
 local cachedUIStates = {}
 
+
+type AbilitySlotState = {
+	Frame: Frame,
+	NameLabel: TextLabel,
+	KeyLabel: TextLabel,
+	CooldownFill: Frame,
+	CooldownLabel: TextLabel,
+	Cooldown: number,
+	ReadyAt: number,
+}
+
 local crosshairGui = Instance.new("ScreenGui")
 crosshairGui.Name = "PossessionCrosshair"
 crosshairGui.ResetOnSpawn = false
@@ -135,6 +152,110 @@ createLine(UDim2.fromOffset(2, 8), UDim2.new(0.5, 0, 0.5, -12))
 createLine(UDim2.fromOffset(2, 8), UDim2.new(0.5, 0, 0.5, 12))
 createLine(UDim2.fromOffset(8, 2), UDim2.new(0.5, -12, 0.5, 0))
 createLine(UDim2.fromOffset(8, 2), UDim2.new(0.5, 12, 0.5, 0))
+
+local abilityHudGui = Instance.new("ScreenGui")
+abilityHudGui.Name = "PossessionAbilityHud"
+abilityHudGui.ResetOnSpawn = false
+abilityHudGui.Enabled = false
+abilityHudGui.Parent = playerGui
+
+local abilityHudContainer = Instance.new("Frame")
+abilityHudContainer.Name = "Container"
+abilityHudContainer.AnchorPoint = Vector2.new(0.5, 1)
+abilityHudContainer.Position = UDim2.fromScale(0.5, 0.98)
+abilityHudContainer.Size = UDim2.fromOffset(320, 70)
+abilityHudContainer.BackgroundTransparency = 1
+abilityHudContainer.Parent = abilityHudGui
+
+local abilityHudLayout = Instance.new("UIListLayout")
+abilityHudLayout.FillDirection = Enum.FillDirection.Horizontal
+abilityHudLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+abilityHudLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+abilityHudLayout.Padding = UDim.new(0, 12)
+abilityHudLayout.Parent = abilityHudContainer
+
+local abilitySlots: {[number]: AbilitySlotState} = {}
+
+local function create_ability_slot(index: number): AbilitySlotState
+	local slotFrame = Instance.new("Frame")
+	slotFrame.Name = string.format("AbilitySlot%d", index)
+	slotFrame.Size = UDim2.fromOffset(150, 64)
+	slotFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	slotFrame.BackgroundTransparency = 0.2
+	slotFrame.BorderSizePixel = 0
+	slotFrame.Parent = abilityHudContainer
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 1
+	stroke.Color = Color3.fromRGB(90, 90, 90)
+	stroke.Transparency = 0.2
+	stroke.Parent = slotFrame
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = slotFrame
+
+	local keyLabel = Instance.new("TextLabel")
+	keyLabel.Name = "Key"
+	keyLabel.BackgroundTransparency = 1
+	keyLabel.Position = UDim2.fromOffset(8, 4)
+	keyLabel.Size = UDim2.fromOffset(20, 16)
+	keyLabel.Font = Enum.Font.GothamBold
+	keyLabel.TextSize = 14
+	keyLabel.TextXAlignment = Enum.TextXAlignment.Left
+	keyLabel.TextColor3 = Color3.fromRGB(190, 190, 190)
+	keyLabel.Text = tostring(index)
+	keyLabel.Parent = slotFrame
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "Name"
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Position = UDim2.fromOffset(8, 20)
+	nameLabel.Size = UDim2.new(1, -16, 0, 18)
+	nameLabel.Font = Enum.Font.GothamSemibold
+	nameLabel.TextSize = 13
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nameLabel.Text = "Ability"
+	nameLabel.Parent = slotFrame
+
+	local cooldownFrame = Instance.new("Frame")
+	cooldownFrame.Name = "CooldownFill"
+	cooldownFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	cooldownFrame.BackgroundTransparency = 0.78
+	cooldownFrame.BorderSizePixel = 0
+	cooldownFrame.Position = UDim2.new(0, 0, 0, 0)
+	cooldownFrame.Size = UDim2.fromScale(1, 0)
+	cooldownFrame.ZIndex = 3
+	cooldownFrame.Parent = slotFrame
+
+	local cooldownLabel = Instance.new("TextLabel")
+	cooldownLabel.Name = "Cooldown"
+	cooldownLabel.BackgroundTransparency = 1
+	cooldownLabel.Position = UDim2.fromOffset(8, 42)
+	cooldownLabel.Size = UDim2.new(1, -16, 0, 18)
+	cooldownLabel.Font = Enum.Font.Gotham
+	cooldownLabel.TextSize = 12
+	cooldownLabel.TextXAlignment = Enum.TextXAlignment.Left
+	cooldownLabel.TextColor3 = Color3.fromRGB(190, 190, 190)
+	cooldownLabel.Text = "Ready"
+	cooldownLabel.Parent = slotFrame
+
+	return {
+		Frame = slotFrame,
+		NameLabel = nameLabel,
+		KeyLabel = keyLabel,
+		CooldownFill = cooldownFrame,
+		CooldownLabel = cooldownLabel,
+		Cooldown = ABILITY_DEFAULT_COOLDOWN,
+		ReadyAt = 0,
+	}
+end
+
+for i = 1, ABILITY_SLOT_COUNT do
+	abilitySlots[i] = create_ability_slot(i)
+end
 
 local function refresh_camera(): ()
 	local currentCamera = workspace.CurrentCamera
@@ -457,7 +578,67 @@ local function restoreUIElements()
 	cachedUIStates = {}
 end
 
-local function on_possess_confirm(towerModel: Model?, state: boolean): ()
+
+local function reset_ability_hud(): ()
+	for index, slot in pairs(abilitySlots) do
+		slot.NameLabel.Text = string.format("Ability %d", index)
+		slot.Cooldown = ABILITY_DEFAULT_COOLDOWN
+		slot.ReadyAt = 0
+		slot.CooldownFill.Size = UDim2.fromScale(1, 0)
+		slot.CooldownLabel.Text = "Ready"
+		slot.Frame.Visible = false
+	end
+end
+
+local function configure_ability_hud(possessionData: {[string]: any}?): ()
+	reset_ability_hud()
+
+	if not possessionData then
+		return
+	end
+
+	local abilities = possessionData.Abilities
+	if typeof(abilities) ~= "table" then
+		return
+	end
+
+	for index = 1, ABILITY_SLOT_COUNT do
+		local slotData = abilities[index]
+		local slot = abilitySlots[index]
+		if slotData and slot then
+			local name = slotData.Name
+			local cooldown = slotData.Cooldown
+
+			slot.NameLabel.Text = (typeof(name) == "string" and name ~= "") and name or string.format("Ability %d", index)
+			slot.Cooldown = (typeof(cooldown) == "number" and cooldown > 0) and cooldown or ABILITY_DEFAULT_COOLDOWN
+			slot.Frame.Visible = true
+		end
+	end
+end
+
+local function trigger_ability_cooldown(slotIndex: number): boolean
+	local slot = abilitySlots[slotIndex]
+	if not slot or not slot.Frame.Visible then
+		return false
+	end
+
+	local now = os.clock()
+	if now < slot.ReadyAt then
+		return false
+	end
+
+	slot.ReadyAt = now + slot.Cooldown
+	slot.CooldownFill.Size = UDim2.fromScale(1, 1)
+	slot.CooldownLabel.Text = string.format("%.1fs", slot.Cooldown)
+
+	local tween = TweenService:Create(slot.CooldownFill, TweenInfo.new(slot.Cooldown, Enum.EasingStyle.Linear), {
+		Size = UDim2.fromScale(1, 0)
+	})
+	tween:Play()
+	return true
+end
+
+local function on_possess_confirm(towerModel: Model?, state: boolean, possessionData: {[string]: any}?): ()
 	if state and towerModel then
 		inCommandFrame.Visible = true
 		originalCameraCFrame = camera.CFrame
@@ -503,13 +684,15 @@ local function on_possess_confirm(towerModel: Model?, state: boolean): ()
 
 		UserInputService.MouseIconEnabled = false
 		crosshairGui.Enabled = true
+		abilityHudGui.Enabled = true
+		configure_ability_hud(possessionData)
 
 		ContextActionService:BindActionAtPriority(
 			BLOCK_ACTION_NAME,
 			function() return Enum.ContextActionResult.Sink end,
 			false,
 			INPUT_PRIORITY,
-			Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Q, Enum.KeyCode.R, Enum.KeyCode.X, Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift
+			Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Q, Enum.KeyCode.R, Enum.KeyCode.X, Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift
 		)
 
 		create_viewmodel(towerModel)
@@ -533,6 +716,8 @@ local function on_possess_confirm(towerModel: Model?, state: boolean): ()
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
 		crosshairGui.Enabled = false
+		abilityHudGui.Enabled = false
+		reset_ability_hud()
 
 		ContextActionService:UnbindAction(BLOCK_ACTION_NAME)
 
@@ -565,18 +750,42 @@ local function on_possess_action(_: string, inputState: Enum.UserInputState, _: 
 	return Enum.ContextActionResult.Pass
 end
 
+local function fire_possession_attack(abilitySlot: number?): Enum.ContextActionResult
+	if currentlyPossessing then
+		if abilitySlot and not trigger_ability_cooldown(abilitySlot) then
+			return Enum.ContextActionResult.Sink
+		end
+
+		local targetPosition = getAimPosition()
+		shootEvent:FireServer(targetPosition, camera.CFrame.LookVector, abilitySlot)
+		return Enum.ContextActionResult.Sink
+	end
+
+	return Enum.ContextActionResult.Pass
+end
+
 local function on_shoot_action(_: string, inputState: Enum.UserInputState, _: InputObject): Enum.ContextActionResult
 	if inputState ~= Enum.UserInputState.Begin then
 		return Enum.ContextActionResult.Pass
 	end
 
-	if currentlyPossessing then
-		local targetPosition = getAimPosition()
-		shootEvent:FireServer(targetPosition, camera.CFrame.LookVector)
-		return Enum.ContextActionResult.Sink
+	return fire_possession_attack(nil)
+end
+
+local function on_ability_one_action(_: string, inputState: Enum.UserInputState, _: InputObject): Enum.ContextActionResult
+	if inputState ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
 	end
 
-	return Enum.ContextActionResult.Pass
+	return fire_possession_attack(1)
+end
+
+local function on_ability_two_action(_: string, inputState: Enum.UserInputState, _: InputObject): Enum.ContextActionResult
+	if inputState ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
+	end
+
+	return fire_possession_attack(2)
 end
 
 local function on_play_vfx(towerModel: Model, moduleName: string, attackName: string, hitPosition: Vector3): ()
@@ -665,6 +874,17 @@ local function on_render_step(deltaTime: number): ()
 
 	percentLabel.Text = math.floor(currentEnergy) .. "%"
 
+	for _, slot in pairs(abilitySlots) do
+		if slot.Frame.Visible then
+			local remaining = math.max(0, slot.ReadyAt - os.clock())
+			if remaining > 0 then
+				slot.CooldownLabel.Text = string.format("%.1fs", remaining)
+			else
+				slot.CooldownLabel.Text = "Ready"
+			end
+		end
+	end
+
 	if currentlyPossessing then
 		local humanoid = currentlyPossessing:FindFirstChild("Humanoid")
 		if humanoid and humanoid:IsA("Humanoid") then
@@ -730,6 +950,22 @@ ContextActionService:BindActionAtPriority(
 	false,
 	INPUT_PRIORITY,
 	Enum.UserInputType.MouseButton1
+)
+
+ContextActionService:BindActionAtPriority(
+	ABILITY_ONE_ACTION_NAME,
+	on_ability_one_action,
+	false,
+	INPUT_PRIORITY,
+	Enum.KeyCode.One
+)
+
+ContextActionService:BindActionAtPriority(
+	ABILITY_TWO_ACTION_NAME,
+	on_ability_two_action,
+	false,
+	INPUT_PRIORITY,
+	Enum.KeyCode.Two
 )
 
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(refresh_camera)
